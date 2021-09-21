@@ -2,4 +2,5 @@
 A university project to create the volumetric fog
 
 Effect of shader:
-![alt text](https://https://github.com/neon1400/Volumetric-Fog/blob/master/image.png)
+
+![alt text](image.png?raw-true "Volumetric fog and light")

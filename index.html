@@ -20,6 +20,7 @@ var vertexCoordsBuffer2;
 var vertexNormalBuffer2;
 var indexBuffer2;
 
+
 function MatrixMul(a,b) //Mnożenie macierzy
 {
   let c = [
@@ -372,7 +373,7 @@ async function startGL()
     varying vec3 vPos;
     varying vec3 vNormal;
     varying vec2 vCoord;
-    varying vec3 camPos;
+    //varying vec3 camPos;
     varying vec2 fogCrd;
     vec3 fogScaleBias = vec3(0, 0.06, 0);
     uniform float uNormalMul;
@@ -387,9 +388,7 @@ async function startGL()
       fogCrd = vPos.xy * fogScaleBias.z + fogScaleBias.xy;
 
 
-      mat3 rotMat = mat3(uVMatrix);
-      vec3 d = vec3(uVMatrix[2]);
-      camPos = -d * rotMat;
+
     }
   `;
   const fragmentShaderSource = `
@@ -398,13 +397,14 @@ async function startGL()
     vec4 out_Color;
     varying vec3 vPos;
     varying vec3 vNormal;
-    //varying mat4 vVMatrix; //poz kam
+    uniform mat4 uVMatrix; //poz kam
     uniform sampler2D uSampler;
     uniform vec3 uLightPosition;
     uniform vec3 uColor;
     uniform vec3 skyColor;
+    uniform float fogDensity;
     varying vec2 fogCrd;
-    varying vec3 camPos;
+    //varying vec3 camPos;
     float gradient = 1.1;
     vec3 fogScaleBias = vec3(0, -1.06, 0);
     uniform sampler2D Fog;
@@ -423,7 +423,7 @@ async function startGL()
     };
 
     #define NR_POINT_LIGHTS 2
-    #define COUNT 5
+    #define COUNT 7
     
     uniform PointLight pointLights[NR_POINT_LIGHTS];
 
@@ -455,19 +455,25 @@ async function startGL()
     const float maxFogHeight = 3.28;
 
     void main(void) {
+      mat3 rotMat = mat3(uVMatrix);
+      vec3 d = vec3(uVMatrix[3]);
+      vec3 camPos = -d * rotMat;
+
+
+
+
       vec2 fogCoord = fogCrd;
       const vec3 fogColor = vec3(0.9, 1.0, 0.8);
-      const float fogDensity = 0.02;
+      //const float fogDensity = 0.04;
 
 
-      float dist = length(vPos - camPos);
+      float dist = length(vPos-camPos);
 
-      float distInFog = dist * (maxFogHeight - vPos.y) / (vPos.y - camPos.y);
+      float distInFog = dist * (maxFogHeight - vPos.y) / (vPos.y + camPos.y);
       float fogAmount = log((distInFog )*0.11)*0.26 ;
 
       fogAmount = clamp(fogAmount, 0.0, 1.0);
-      //* length(vPos)
-      float n = fogDensity * (length(vPos)/11.5 + fogAmount/0.08);
+      float n = fogDensity * (length(vPos-camPos)/11.5 + fogAmount/0.08);
 
       //light
       vec3 result = vec3(0.0);
@@ -484,20 +490,15 @@ async function startGL()
       for (int i = 0; i < COUNT; i++)
       {
         fogCoord += fogScaleBias.z*vPos.xy;
-        float something = rand(fogCoord);
+        //float something = rand(fogCoord);
         float fog = texture2D(Fog, fogCoord).x;
-        float x = 1.0 - something * n; 
+        float x = 1.0 - fog * n; 
 
         a *= x;
-        b = mix(something, b, x);
+        b = mix(fog, b, x);
       }
       
-
-
-
-      //b -= fogAmount/2.0;
-
-      float distance4 = length(vPos);
+      float distance4 = length(vPos-camPos);
       float temp = pow(distance4, gradient);
       float visibility = clamp((temp/65.0), 0.0, 1.0);
       vec3 color = mix(uColor, vec3(0.0,0.0,0.0), visibility);
@@ -622,10 +623,11 @@ var angleY = 90.0;
 var angleX = 0.0;
 var KameraPositionZ = -1.0;
 var KameraPositionY = -2.5;
+var KameraPositionX = 0.0;
 var Object1PositionX = -0.05*5;
 var Object1PositionY = 0.0;
 var Object1PositionZ = -0.0;
-
+var fogDensity = 0.02;
 var Object1AngleZ = 0.0;
 
 var Object1Sizedx = 2*5;
@@ -659,37 +661,20 @@ function Tick()
   let uMMatrix2 = CreateIdentytyMatrix();
   let uMMatrix3 = CreateIdentytyMatrix();
   
-  let uVMatrix = CreateIdentytyMatrix();
   
+  var uVMatrix = CreateIdentytyMatrix();
   
   uVMatrix = MatrixMul(uVMatrix,CreateRotationXMatrix(angleX));
   uVMatrix = MatrixMul(uVMatrix,CreateRotationYMatrix(angleY));
   uVMatrix = MatrixMul(uVMatrix,CreateRotationXMatrix(angleZ));
-  uVMatrix = MatrixMul(uVMatrix,CreateTranslationMatrix(0,KameraPositionY,KameraPositionZ));
-  
+  uVMatrix = MatrixMul(uVMatrix,CreateTranslationMatrix(KameraPositionX,KameraPositionY,KameraPositionZ));
+
+  console.log(uVMatrix);
   uMMatrix1 = MatrixMul(uMMatrix1,CreateScaleMatrix(Object1Sizedx,Object1Sizedy,Object1Sizedz));
   uMMatrix1 = MatrixMul(uMMatrix1,CreateTranslationMatrix(Object1Sizedx,0.0,0.0)); 
   uMMatrix1 = MatrixMul(uMMatrix1,CreateRotationXMatrix(Object1AngleZ));
   uMMatrix1 = MatrixMul(uMMatrix1,CreateTranslationMatrix(Object1PositionX,Object1PositionY,Object1PositionZ));  
-  
-  //uMMatrix2 = MatrixMul(uMMatrix2,CreateScaleMatrix(Object2Sizedx,Object2Sizedy,Object2Sizedz));
-  //uMMatrix2 = MatrixMul(uMMatrix2,CreateTranslationMatrix(0.0,0.0,0.0)); 
-  //uMMatrix2 = MatrixMul(uMMatrix2,CreateRotationYMatrix(Object2AngleZ));
-  //uMMatrix2 = MatrixMul(uMMatrix2,CreateTranslationMatrix(Object2PositionX,Object2PositionY,Object2PositionZ));
-  
-  //uMMatrix2 = MatrixMul(uMMatrix2,CreateTranslationMatrix(Object1Sizedx,0.0,0.0)); 
-  //uMMatrix2 = MatrixMul(uMMatrix2,CreateRotationYMatrix(Object1AngleZ));
-  //uMMatrix2 = MatrixMul(uMMatrix2,CreateTranslationMatrix(Object1PositionX,Object1PositionY,Object1PositionZ));
-  
-  //uMMatrix3 = MatrixMul(uMMatrix3,CreateScaleMatrix(Object3Sizedx,Object3Sizedy,Object3Sizedz));
-  //uMMatrix3 = MatrixMul(uMMatrix3,CreateTranslationMatrix(0.0,0.0,0.0)); 
-  //uMMatrix3 = MatrixMul(uMMatrix3,CreateRotationYMatrix(Object3AngleZ));
-  //uMMatrix3 = MatrixMul(uMMatrix3,CreateTranslationMatrix(Object3PositionX,Object3PositionY,Object3PositionZ));
-  
-  //uMMatrix3 = MatrixMul(uMMatrix3,CreateTranslationMatrix(Object1Sizedx,0.0,0.0)); 
-  //uMMatrix3 = MatrixMul(uMMatrix3,CreateRotationYMatrix(Object1AngleZ));
-  //uMMatrix3 = MatrixMul(uMMatrix3,CreateTranslationMatrix(Object1PositionX,Object1PositionY,Object1PositionZ));
-  
+
   uMMatrix0 = MatrixMul(uMMatrix0,CreateScaleMatrix(Light1Size,Light1Size,Light1Size));
   uMMatrix0 = MatrixMul(uMMatrix0,CreateTranslationMatrix(Light1PositionX,Light1PositionY,Light1PositionZ));
 
@@ -710,6 +695,8 @@ function Tick()
   
   gl.uniformMatrix4fv(gl.getUniformLocation(shaderProgram, "uPMatrix"), false, new Float32Array(uPMatrix)); //Wgranie macierzy kamery do pamięci karty graficznej
   gl.uniformMatrix4fv(gl.getUniformLocation(shaderProgram, "uVMatrix"), false, new Float32Array(uVMatrix));
+
+  gl.uniform1f(gl.getUniformLocation(shaderProgram, "fogDensity"), fogDensity);
   gl.uniform1f(gl.getUniformLocation(shaderProgram, "uNormalMul"),1.0);
   //gl.uniform3f(gl.getUniformLocation(shaderProgram, "uLightPosition"),Light1PositionX,Light1PositionY,Light1PositionZ);
   //gl.uniform1f(gl.getUniformLocation(shaderProgram, "pointLights[0].constant"), 1.0);
@@ -780,7 +767,7 @@ function Tick()
   //gl.drawArrays(gl.TRIANGLES, 0, vertexPositionBuffer.numItems*vertexPositionBuffer.itemSize); //Faktyczne wywołanie rendrowania
   gl.drawElements(gl.TRIANGLES, indexBuffer2.numItems, gl.UNSIGNED_INT, 0);
   
-    gl.uniform3f(gl.getUniformLocation(shaderProgram, "uLightPosition"),Light2PositionX,Light2PositionY,Light2PositionZ);
+  gl.uniform3f(gl.getUniformLocation(shaderProgram, "uLightPosition"),Light2PositionX,Light2PositionY,Light2PositionZ);
 
 
   gl.uniformMatrix4fv(gl.getUniformLocation(shaderProgram, "uMMatrix"), false, new Float32Array(uMMatrix01));
@@ -801,6 +788,23 @@ function handlekeydown(e)
  if(e.keyCode==65) angleY=angleY-1.0;
  if(e.keyCode==81) angleZ=angleZ+1.0;
  if(e.keyCode==69) angleZ=angleZ-1.0;
+
+ if(e.keyCode==38) KameraPositionZ=KameraPositionZ+0.3; //up
+ if(e.keyCode==40) KameraPositionZ=KameraPositionZ-0.3; //down
+ if(e.keyCode==37) KameraPositionX=KameraPositionX+0.3; //left
+ if(e.keyCode==39) KameraPositionX=KameraPositionX-0.3; //right
+
+ //U I O J K L
+ if(e.keyCode==76) Light1PositionX=Light1PositionX+0.1;
+ if(e.keyCode==74) Light1PositionX=Light1PositionX-0.1;
+ if(e.keyCode==73) Light1PositionY=Light1PositionY+0.1;
+ if(e.keyCode==75) Light1PositionY=Light1PositionY-0.1;
+ if(e.keyCode==85) Light1PositionZ=Light1PositionZ+0.1;
+ if(e.keyCode==79) Light1PositionZ=Light1PositionZ-0.1;
+
+ //zwiekszanie zmniejszanie mgly
+ if(e.keyCode==77) fogDensity=fogDensity+0.01;
+ if(e.keyCode==78) fogDensity=fogDensity-0.01;
 }
 </script>
 </head>
